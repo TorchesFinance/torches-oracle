@@ -1,0 +1,44 @@
+[
+  {
+    "description": "BTC / USD",
+    "ocr_address": "0x91eB2B9ff23cF5c060b26adE05167C4c49c83D38",
+    "proxy_address": "0xBb3423a913a9a69aD7Dba09B62abdFDE4643BAe4",
+    "deploy": false,
+    "chainid": 322
+  },
+  {
+    "description": "ETH / USD",
+    "ocr_address": "0xB8Beeb72C264602FC57b2d5547C6631AF427251C",
+    "proxy_address": "0x22337a9a305E081c0C801dd7B7b8eCF4966660bB",
+    "deploy": false,
+    "chainid": 322
+  },
+  {
+    "description": "KCS / USD",
+    "ocr_address": "0xB76b7a38d74AEddC069A4664e091196d9A8BA057",
+    "proxy_address": "0xae3DB39196012a7bF6D38737192F260cdFE1E7Ec",
+    "deploy": false,
+    "chainid": 322
+  },
+  {
+    "description": "MJT / USD",
+    "ocr_address": "0x637805050099E5F45E285A4cE604514FfE92F2F7",
+    "proxy_address": "0x11Eb72402ABA2031dAc555F158e23614009b1b6f",
+    "deploy": false,
+    "chainid": 322
+  },
+  {
+    "description": "USDT / USD",
+    "ocr_address": "0x8283afDB4d4F7ba1C166d396730e06F8394774d4",
+    "proxy_address": "0x2bE470B8BD3CF5655dcC666CDe37E3E4D6cf3168",
+    "deploy": false,
+    "chainid": 322
+  },
+    {
+    "description": "USDC / USD",
+    "ocr_address": "0x3E307749567733B075273dF7fF03728d90eE637f",
+    "proxy_address": "0x91b66dAd926FaC824da9390D1aF6f68db391A5c0",
+    "deploy": false,
+    "chainid": 322
+  }
+]
