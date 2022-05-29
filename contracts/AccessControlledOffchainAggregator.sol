@@ -12,8 +12,23 @@ contract AccessControlledOffchainAggregator is OffchainAggregator, SimpleReadAcc
     uint8 _lowerBoundAnchorRatio,
     uint8 _upperBoundAnchorRatio,
     uint8 _decimals,
-    string memory _description
-  ) OffchainAggregator(_lowerBoundAnchorRatio, _upperBoundAnchorRatio, _decimals, _description) {}
+    string memory _description,
+    address _mojitoOracle,
+    address _witnetOracle,
+    uint256 _answerBaseUint,
+    bool _validateAnswerEnabled
+  )
+    OffchainAggregator(
+      _lowerBoundAnchorRatio,
+      _upperBoundAnchorRatio,
+      _decimals,
+      _description,
+      _mojitoOracle,
+      _witnetOracle,
+      _answerBaseUint,
+      _validateAnswerEnabled
+    )
+  {}
 
   /*
    * Versioning

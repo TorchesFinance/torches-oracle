@@ -235,7 +235,7 @@ describe('SimpleReadAccessController', () => {
       })
 
       it('announces the change via a log', async () => {
-        expect(tx).to.emit(controller, 'CheckAccessEnabled')
+        await expect(tx).to.emit(controller, 'CheckAccessEnabled')
       })
 
       describe('when called twice', () => {

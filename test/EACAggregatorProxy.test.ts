@@ -68,6 +68,8 @@ describe('EACAggregatorProxy', () => {
   const phaseBase = BigNumber.from(2).pow(64)
   const lowerBoundAnchorRatio = 95
   const upperBoundAnchorRatio = 105
+  const answerBaseUint = 1e8
+  const validateAnswerEnabled = false
 
   let aggregator: Contract
   let aggregator2: Contract
@@ -82,7 +84,16 @@ describe('EACAggregatorProxy', () => {
       .deploy(decimals, response)
     ocr = await ocrAggregatorFactory
       .connect(personas.Carol)
-      .deploy(lowerBoundAnchorRatio, upperBoundAnchorRatio, 18, 'TEST / KCS')
+      .deploy(
+        lowerBoundAnchorRatio,
+        upperBoundAnchorRatio,
+        8,
+        'TEST / USDT',
+        constants.AddressZero,
+        constants.AddressZero,
+        answerBaseUint,
+        validateAnswerEnabled,
+      )
     const emptyAddress = constants.AddressZero
     proxy = await eacAggregatorProxyFactory
       .connect(defaultAccount)

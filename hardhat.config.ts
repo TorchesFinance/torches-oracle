@@ -10,6 +10,7 @@ import 'solidity-coverage'
 import "hardhat-spdx-license-identifier"
 import "hardhat-deploy"
 import "hardhat-deploy-ethers"
+import "hardhat-gas-reporter"
 
 import { HardhatUserConfig } from "hardhat/types"
 
@@ -68,7 +69,8 @@ const config: HardhatUserConfig = {
         blockGasLimit: 300000
     },
     kt: {
-        url: "https://rpc-testnet.kcc.network",
+        //url: "https://rpc-testnet.kcc.network",
+        url: "https://rpc.sdk.wang/kcc-test",
         accounts,
         chainId: 322,
         live: true,

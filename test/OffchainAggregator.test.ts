@@ -2,6 +2,7 @@ import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import {
   Contract,
+  constants,
   ContractFactory,
   BigNumber,
   Signer,
@@ -13,24 +14,38 @@ import { publicAbi } from './test-helpers/helpers'
 
 let personas: Personas
 let ocrAggregatorFactory: ContractFactory
+let mojitoOracleTestFactory: ContractFactory
+let witnetPriceTestFactory: ContractFactory
 
 before(async () => {
   personas = (await getUsers()).personas
   ocrAggregatorFactory = await ethers.getContractFactory(
     'contracts/OffchainAggregator.sol:OffchainAggregator',
   )
+  mojitoOracleTestFactory = await ethers.getContractFactory(
+    'contracts/tests/MockMojitoOracle.sol:MockMojitoOracle',
+  )
+  witnetPriceTestFactory = await ethers.getContractFactory(
+    'contracts/tests/MockWitnetPriceRouter.sol:MockWitnetPriceRouter',
+  )
 })
 
 describe('OffchainAggregator', () => {
   const lowerBoundAnchorRatio = 95
   const upperBoundAnchorRatio = 105
-  const decimals = 18
-  const description = 'KCS / BTC'
+  const decimals = 8
+  const description = 'KCS / USDT'
+  const answerBaseUint = 1e8
+  const validateAnswerEnabled = true
   const typeAndVersion = 'OffchainAggregator 1.0.0'
   const initConfigCount = BigNumber.from(0)
+  const testKey =
+    '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a'
 
   let aggregator: Contract
   let configBlockNumber: BigNumber
+  let mojitoOracleTest: Contract
+  let witnetPriceTest: Contract
 
   async function setOCRConfig(
     aggregator: Contract,
@@ -72,6 +87,14 @@ describe('OffchainAggregator', () => {
   }
 
   beforeEach(async () => {
+    mojitoOracleTest = await mojitoOracleTestFactory
+      .connect(personas.Carol)
+      .deploy()
+
+    witnetPriceTest = await witnetPriceTestFactory
+      .connect(personas.Carol)
+      .deploy()
+
     aggregator = await ocrAggregatorFactory
       .connect(personas.Carol)
       .deploy(
@@ -79,35 +102,53 @@ describe('OffchainAggregator', () => {
         upperBoundAnchorRatio,
         decimals,
         description,
+        mojitoOracleTest.address,
+        witnetPriceTest.address,
+        answerBaseUint,
+        validateAnswerEnabled,
       )
   })
 
   it('has a limited public interface [ @skip-coverage ]', () => {
     publicAbi(aggregator, [
+      'answerBaseUint',
       'decimals',
       'description',
+      'disableAnswerValidate',
+      'enableAnswerValidate',
       'getAnswer',
       'getRoundData',
       'getTimestamp',
       'getTransmitters',
+      'getMojitoConfig',
+      'getMojitoPrice',
+      'getWitnetConfig',
+      'getWitnetPrice',
       'latestAnswer',
       'latestConfigDetails',
       'latestRound',
       'latestRoundData',
       'latestTimestamp',
       'latestTransmissionDetails',
-      'upperBoundAnchorRatio',
+      'mojitoOracle',
       'lowerBoundAnchorRatio',
+      'upperBoundAnchorRatio',
       'owner',
       'setAnchorRatio',
       'setConfig',
       'transmit',
       'transmitWithForce',
       'typeAndVersion',
+      'validateAnswerEnabled',
       'version',
+      'witnetOracle',
       // Owned methods:
       'acceptOwnership',
       'owner',
+      'setMojitoConfig',
+      'setMojitoOracle',
+      'setWitnetConfig',
+      'setWitnetOracle',
       'transferOwnership',
     ])
   })
@@ -168,7 +209,7 @@ describe('OffchainAggregator', () => {
             ],
             [await personas.Ned.getAddress(), await personas.Neil.getAddress()],
           )
-        expect(tx)
+        await expect(tx)
           .to.emit(aggregator, 'ConfigSet')
           .withArgs(
             configBlockNumber,
@@ -307,17 +348,23 @@ describe('OffchainAggregator', () => {
       configBlockNumber = configDetails.blockNumber
     })
     const observationsTimestamp = BigNumber.from(1645973528).toNumber()
-    const median = BigNumber.from(3887649853020).toNumber()
+    // 8 decimal
+    const median = BigNumber.from(3000010045008).toNumber()
+    // 18 decimal
+    const priceFormMojito = '30000100006789000000000'
+    // 6 decimal
+    const priceFormWitnet = BigNumber.from(30000103406).toNumber()
     describe('first transmit', () => {
       it('emits a log', async () => {
+        await aggregator.disableAnswerValidate()
         const tx = await transmitOCR(
           aggregator,
-          '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a',
+          testKey,
           personas.Ned,
           median,
           observationsTimestamp,
         )
-        expect(tx)
+        await expect(tx)
           .to.emit(aggregator, 'NewTransmission')
           .withArgs(
             1,
@@ -325,6 +372,421 @@ describe('OffchainAggregator', () => {
             await personas.Ned.getAddress(),
             observationsTimestamp,
           )
+      })
+    })
+
+    describe('set correct mojito (mojito.tokenB == address(0)) anchor price and transmit', () => {
+      beforeEach(async () => {
+        const kcsToken = '0x4446Fc4eb47f2f6586f9fAAb68B3498F86C07521'
+        const usdcToken = '0x980a5AfEf3D17aD98635F6C5aebCBAedEd3c3430'
+
+        await mojitoOracleTest
+          .connect(personas.Carol)
+          .updateAmountOut(priceFormMojito)
+
+        const tx = await aggregator
+          .connect(personas.Carol)
+          .setMojitoConfig(
+            true,
+            kcsToken,
+            constants.AddressZero,
+            usdcToken,
+            constants.WeiPerEther,
+            constants.WeiPerEther,
+          )
+        await expect(tx)
+          .to.emit(aggregator, 'MojitoConfigSet')
+          .withArgs(
+            true,
+            kcsToken,
+            constants.AddressZero,
+            usdcToken,
+            constants.WeiPerEther,
+            constants.WeiPerEther,
+          )
+
+        const mojitoConfig = await aggregator.getMojitoConfig()
+        assert.equal(true, mojitoConfig.available)
+        assert.equal(kcsToken, mojitoConfig.tokenA)
+        assert.equal(constants.AddressZero, mojitoConfig.tokenB)
+        assert.equal(usdcToken, mojitoConfig.tokenC)
+        bigNumEquals(
+          BigNumber.from(3000010000678),
+          await aggregator.getMojitoPrice(),
+        )
+      })
+
+      it('emits a log', async () => {
+        const tx = await transmitOCR(
+          aggregator,
+          testKey,
+          personas.Ned,
+          median,
+          observationsTimestamp,
+        )
+        await expect(tx)
+          .to.emit(aggregator, 'NewTransmission')
+          .withArgs(
+            1,
+            median,
+            await personas.Ned.getAddress(),
+            observationsTimestamp,
+          )
+      })
+    })
+
+    describe('set correct mojito price (mojito.tokenB != address(0)) and transmit', () => {
+      beforeEach(async () => {
+        // btc - usdc = 1btc>kcs->usdc
+        const btcToken = '0xfA93C12Cd345c658bc4644D1D4E1B9615952258C'
+        const kcsToken = '0x4446Fc4eb47f2f6586f9fAAb68B3498F86C07521'
+        const usdcToken = '0x980a5AfEf3D17aD98635F6C5aebCBAedEd3c3430'
+
+        await mojitoOracleTest
+          .connect(personas.Carol)
+          .updateAmountOut(priceFormMojito)
+
+        const tx = await aggregator
+          .connect(personas.Carol)
+          .setMojitoConfig(
+            true,
+            btcToken,
+            kcsToken,
+            usdcToken,
+            constants.WeiPerEther,
+            constants.WeiPerEther,
+          )
+        await expect(tx)
+          .to.emit(aggregator, 'MojitoConfigSet')
+          .withArgs(
+            true,
+            btcToken,
+            kcsToken,
+            usdcToken,
+            constants.WeiPerEther,
+            constants.WeiPerEther,
+          )
+
+        const mojitoConfig = await aggregator.getMojitoConfig()
+        assert.equal(true, mojitoConfig.available)
+        assert.equal(btcToken, mojitoConfig.tokenA)
+        assert.equal(kcsToken, mojitoConfig.tokenB)
+        assert.equal(usdcToken, mojitoConfig.tokenC)
+        bigNumEquals(
+          BigNumber.from(3000010000678),
+          await aggregator.getMojitoPrice(),
+        )
+      })
+
+      it('emits a log', async () => {
+        const tx = await transmitOCR(
+          aggregator,
+          testKey,
+          personas.Ned,
+          median,
+          observationsTimestamp,
+        )
+        await expect(tx)
+          .to.emit(aggregator, 'NewTransmission')
+          .withArgs(
+            1,
+            median,
+            await personas.Ned.getAddress(),
+            observationsTimestamp,
+          )
+      })
+    })
+
+    describe('set incorrect mojito price (mojito.tokenB != address(0)) and transmit', () => {
+      beforeEach(async () => {
+        // btc - usdc = 1btc>kcs->usdc
+        const btcToken = '0xfA93C12Cd345c658bc4644D1D4E1B9615952258C'
+        const kcsToken = '0x4446Fc4eb47f2f6586f9fAAb68B3498F86C07521'
+        const usdcToken = '0x980a5AfEf3D17aD98635F6C5aebCBAedEd3c3430'
+
+        await mojitoOracleTest
+          .connect(personas.Carol)
+          .updateAmountOut(constants.WeiPerEther)
+
+        const tx = await aggregator
+          .connect(personas.Carol)
+          .setMojitoConfig(
+            true,
+            btcToken,
+            kcsToken,
+            usdcToken,
+            constants.WeiPerEther,
+            constants.WeiPerEther,
+          )
+        await expect(tx)
+          .to.emit(aggregator, 'MojitoConfigSet')
+          .withArgs(
+            true,
+            btcToken,
+            kcsToken,
+            usdcToken,
+            constants.WeiPerEther,
+            constants.WeiPerEther,
+          )
+
+        const mojitoConfig = await aggregator.getMojitoConfig()
+        assert.equal(true, mojitoConfig.available)
+        assert.equal(btcToken, mojitoConfig.tokenA)
+        assert.equal(kcsToken, mojitoConfig.tokenB)
+        assert.equal(usdcToken, mojitoConfig.tokenC)
+        bigNumEquals(
+          BigNumber.from(100000000),
+          await aggregator.getMojitoPrice(),
+        )
+      })
+
+      it('emits a log', async () => {
+        const tx = await transmitOCR(
+          aggregator,
+          testKey,
+          personas.Ned,
+          median,
+          observationsTimestamp,
+        )
+
+        const receipt = await tx.wait()
+
+        const block = await ethers.provider.getBlock(receipt.blockNumber ?? '')
+
+        await expect(tx)
+          .to.emit(aggregator, 'AnswerGuarded')
+          .withArgs(1, median, BigNumber.from(100000000), 0, block.timestamp)
+      })
+    })
+
+    describe('set correct witnet price (witnetPriceFeed.pairB == "") and transmit', () => {
+      beforeEach(async () => {
+        const kcsToken = '0x4446Fc4eb47f2f6586f9fAAb68B3498F86C07521'
+        const usdcToken = '0x980a5AfEf3D17aD98635F6C5aebCBAedEd3c3430'
+        const kcsUsdtPairHash =
+          '0x31debffc453c5d04a78431e7bc28098c606d2bbeea22f10a35809924a201a977'
+
+        await mojitoOracleTest
+          .connect(personas.Carol)
+          .updateAmountOut(priceFormMojito)
+
+        await witnetPriceTest
+          .connect(personas.Carol)
+          .updatePrice(priceFormWitnet)
+
+        const tx = await aggregator
+          .connect(personas.Carol)
+          .setMojitoConfig(
+            false,
+            kcsToken,
+            constants.AddressZero,
+            usdcToken,
+            constants.WeiPerEther,
+            constants.WeiPerEther,
+          )
+        await expect(tx)
+          .to.emit(aggregator, 'MojitoConfigSet')
+          .withArgs(
+            false,
+            kcsToken,
+            constants.AddressZero,
+            usdcToken,
+            constants.WeiPerEther,
+            constants.WeiPerEther,
+          )
+
+        const mojitoConfig = await aggregator.getMojitoConfig()
+        assert.equal(false, mojitoConfig.available)
+        assert.equal(kcsToken, mojitoConfig.tokenA)
+        bigNumEquals(BigNumber.from(0), await aggregator.getMojitoPrice())
+
+        const tx2 = await aggregator
+          .connect(personas.Carol)
+          .setWitnetConfig(
+            true,
+            kcsUsdtPairHash,
+            constants.HashZero,
+            BigNumber.from(10).pow(6),
+            0,
+          )
+        await expect(tx2)
+          .to.emit(aggregator, 'WitnetConfigSet')
+          .withArgs(
+            true,
+            kcsUsdtPairHash,
+            constants.HashZero,
+            BigNumber.from(10).pow(6),
+            0,
+          )
+
+        const witnetConfig = await aggregator.getWitnetConfig()
+        assert.equal(true, witnetConfig.available)
+        assert.equal(kcsUsdtPairHash, witnetConfig.pairA)
+        bigNumEquals(BigNumber.from(10).pow(6), witnetConfig.pairABaseUint)
+        // 8 decimals
+        bigNumEquals(
+          BigNumber.from(priceFormWitnet).mul(100),
+          await aggregator.getWitnetPrice(),
+        )
+      })
+
+      it('emits a log', async () => {
+        const tx = await transmitOCR(
+          aggregator,
+          testKey,
+          personas.Ned,
+          median,
+          observationsTimestamp,
+        )
+        await expect(tx)
+          .to.emit(aggregator, 'NewTransmission')
+          .withArgs(
+            1,
+            median,
+            await personas.Ned.getAddress(),
+            observationsTimestamp,
+          )
+      })
+    })
+
+    describe('set incorrect witnet price (witnetPriceFeed.pairB != "") and transmit', () => {
+      beforeEach(async () => {
+        // mjt->usdc = mjt/kcs - kcs/usdt
+        const mjtKcsPairHash =
+          '0x2dcfd5546926b857978957b40dcd5164cc788079b46ce9c1abbaedac07f96837'
+        const kcsUsdtPairHash =
+          '0x31debffc453c5d04a78431e7bc28098c606d2bbeea22f10a35809924a201a977'
+
+        await mojitoOracleTest
+          .connect(personas.Carol)
+          .updateAmountOut(priceFormMojito)
+
+        await witnetPriceTest
+          .connect(personas.Carol)
+          .updatePrice(priceFormWitnet)
+
+        bigNumEquals(BigNumber.from(0), await aggregator.getMojitoPrice())
+
+        const tx2 = await aggregator
+          .connect(personas.Carol)
+          .setWitnetConfig(
+            true,
+            mjtKcsPairHash,
+            kcsUsdtPairHash,
+            BigNumber.from(10).pow(6),
+            BigNumber.from(10).pow(6),
+          )
+        await expect(tx2)
+          .to.emit(aggregator, 'WitnetConfigSet')
+          .withArgs(
+            true,
+            mjtKcsPairHash,
+            kcsUsdtPairHash,
+            BigNumber.from(10).pow(6),
+            BigNumber.from(10).pow(6),
+          )
+
+        const witnetConfig = await aggregator.getWitnetConfig()
+        assert.equal(true, witnetConfig.available)
+        assert.equal(mjtKcsPairHash, witnetConfig.pairA)
+        assert.equal(kcsUsdtPairHash, witnetConfig.pairB)
+        bigNumEquals(BigNumber.from(10).pow(6), witnetConfig.pairABaseUint)
+        bigNumEquals(BigNumber.from(10).pow(6), witnetConfig.pairBBaseUint)
+        // 8 decimals
+        let witnetPrice = BigNumber.from(priceFormWitnet)
+          .mul(priceFormWitnet)
+          .mul(answerBaseUint)
+          .div(witnetConfig.pairABaseUint)
+          .div(witnetConfig.pairBBaseUint)
+        bigNumEquals(witnetPrice, await aggregator.getWitnetPrice())
+
+        // console.log(witnetPrice.toString())
+        // console.log(await aggregator.validateAnswerEnabled())
+
+        await transmitOCR(
+          aggregator,
+          testKey,
+          personas.Ned,
+          median,
+          observationsTimestamp,
+        )
+      })
+
+      it('emits a log', async () => {
+        const tx = await transmitOCR(
+          aggregator,
+          testKey,
+          personas.Ned,
+          median,
+          observationsTimestamp,
+        )
+
+        const receipt = await tx.wait()
+
+        const block = await ethers.provider.getBlock(receipt.blockNumber ?? '')
+
+        const witnetConfig = await aggregator.getWitnetConfig()
+
+        await expect(tx)
+          .to.emit(aggregator, 'AnswerGuarded')
+          .withArgs(
+            1,
+            median,
+            0,
+            BigNumber.from(priceFormWitnet)
+              .mul(priceFormWitnet)
+              .mul(answerBaseUint)
+              .div(witnetConfig.pairABaseUint)
+              .div(witnetConfig.pairBBaseUint),
+            block.timestamp,
+          )
+      })
+    })
+
+    describe('not set anchor price and transmit', () => {
+      beforeEach(async () => {
+        await mojitoOracleTest
+          .connect(personas.Carol)
+          .updateAmountOut(priceFormMojito)
+
+        await witnetPriceTest
+          .connect(personas.Carol)
+          .updatePrice(priceFormWitnet)
+
+        bigNumEquals(BigNumber.from(0), await aggregator.getMojitoPrice())
+
+        bigNumEquals(BigNumber.from(0), await aggregator.getWitnetPrice())
+
+        // console.log(witnetPrice.toString())
+        // console.log(await aggregator.validateAnswerEnabled())
+
+        await transmitOCR(
+          aggregator,
+          testKey,
+          personas.Ned,
+          median,
+          observationsTimestamp,
+        )
+      })
+
+      it('emits a log', async () => {
+        const tx = await transmitOCR(
+          aggregator,
+          testKey,
+          personas.Ned,
+          median,
+          observationsTimestamp,
+        )
+
+        const receipt = await tx.wait()
+
+        const block = await ethers.provider.getBlock(receipt.blockNumber ?? '')
+
+        const witnetConfig = await aggregator.getWitnetConfig()
+
+        await expect(tx)
+          .to.emit(aggregator, 'AnswerGuarded')
+          .withArgs(1, median, 0, 0, block.timestamp)
       })
     })
   })
@@ -337,6 +799,10 @@ describe('OffchainAggregator', () => {
         [personas.Eddy, personas.Nancy],
         [personas.Ned, personas.Neil],
       )
+
+      await aggregator.connect(personas.Carol).disableAnswerValidate()
+
+      assert.equal(await aggregator.validateAnswerEnabled(), false)
     })
     const observationsTimestamp = BigNumber.from(1645973528).toNumber()
     const median = BigNumber.from(3887649853020).toNumber()
@@ -344,7 +810,7 @@ describe('OffchainAggregator', () => {
       it('emits a log', async () => {
         await transmitOCR(
           aggregator,
-          '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a',
+          testKey,
           personas.Ned,
           median,
           observationsTimestamp,
@@ -411,6 +877,110 @@ describe('OffchainAggregator', () => {
         await expect(
           aggregator.connect(personas.Eddy).acceptOwnership(),
         ).to.be.revertedWith('Must be proposed owner')
+      })
+    })
+  })
+
+  describe('#setMojitoOracle', () => {
+    describe('when called by a non-owner', () => {
+      it('reverts', async () => {
+        await expect(
+          aggregator
+            .connect(personas.Eddy)
+            .setMojitoOracle(mojitoOracleTest.address),
+        ).to.be.revertedWith('Only callable by owner')
+      })
+    })
+
+    describe('set mojito oracle success', () => {
+      it('emits a success log', async () => {
+        let mojitoOracleTest2 = await mojitoOracleTestFactory
+          .connect(personas.Carol)
+          .deploy()
+
+        await aggregator
+          .connect(personas.Carol)
+          .setMojitoOracle(mojitoOracleTest2.address)
+      })
+    })
+  })
+
+  describe('#setWitnetOracle', () => {
+    describe('when called by a non-owner', () => {
+      it('reverts', async () => {
+        await expect(
+          aggregator
+            .connect(personas.Eddy)
+            .setWitnetOracle(witnetPriceTest.address),
+        ).to.be.revertedWith('Only callable by owner')
+      })
+    })
+
+    describe('set witnet oracle success', () => {
+      it('emits a success log', async () => {
+        let witnetPriceTest2 = await witnetPriceTestFactory
+          .connect(personas.Carol)
+          .deploy()
+        await aggregator
+          .connect(personas.Carol)
+          .setWitnetOracle(witnetPriceTest2.address)
+      })
+    })
+  })
+
+  describe('#disableAnswerValidate', () => {
+    describe('when called by a non-owner', () => {
+      it('reverts', async () => {
+        await expect(
+          aggregator.connect(personas.Eddy).disableAnswerValidate(),
+        ).to.be.revertedWith('Only callable by owner')
+        assert.isTrue(await aggregator.validateAnswerEnabled())
+      })
+    })
+
+    describe('when called by the owner', () => {
+      beforeEach(async () => {
+        await aggregator.disableAnswerValidate()
+      })
+
+      it('sets validateAnswerEnabled to false', async () => {
+        await aggregator.disableAnswerValidate()
+        assert.isFalse(await aggregator.validateAnswerEnabled())
+      })
+
+      it('reverts', async () => {
+        await expect(
+          aggregator.connect(personas.Eddy).disableAnswerValidate(),
+        ).to.be.revertedWith('')
+      })
+    })
+  })
+
+  describe('#enableAnswerValidate', () => {
+    describe('when called by a non-owner', () => {
+      it('reverts', async () => {
+        await expect(
+          aggregator.connect(personas.Eddy).enableAnswerValidate(),
+        ).to.be.revertedWith('Only callable by owner')
+        assert.isTrue(await aggregator.validateAnswerEnabled())
+      })
+    })
+
+    describe('when called by the owner', () => {
+      beforeEach(async () => {
+        await aggregator.disableAnswerValidate()
+        await aggregator.enableAnswerValidate()
+      })
+
+      it('sets validateAnswerEnabled to true', async () => {
+        await aggregator.enableAnswerValidate()
+        assert.isTrue(await aggregator.validateAnswerEnabled())
+      })
+
+      it('reverts', async () => {
+        await expect(
+          aggregator.connect(personas.Eddy).enableAnswerValidate(),
+        ).to.be.revertedWith('')
       })
     })
   })

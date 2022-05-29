@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat'
 import { numToBytes32, publicAbi } from './test-helpers/helpers'
 import { assert } from 'chai'
-import { BigNumber, Contract, ContractFactory, Signer } from 'ethers'
+import { BigNumber, constants, Contract, ContractFactory, Signer } from 'ethers'
 import { Personas, getUsers } from './test-helpers/setup'
 import { bigNumEquals, evmRevert } from './test-helpers/matchers'
 
@@ -59,6 +59,8 @@ describe('AggregatorProxy', () => {
   const maxId = BigNumber.from(2).pow(BigNumber.from(64).add(16)).sub(1)
   const lowerBoundAnchorRatio = 95
   const upperBoundAnchorRatio = 105
+  const answerBaseUint = 1e8
+  const validateAnswerEnabled = false
 
   let aggregator: Contract
   let aggregator2: Contract
@@ -73,7 +75,16 @@ describe('AggregatorProxy', () => {
       .deploy(decimals, response)
     ocr = await ocrAggregatorFactory
       .connect(personas.Carol)
-      .deploy(lowerBoundAnchorRatio, upperBoundAnchorRatio, 18, 'TEST / KCS')
+      .deploy(
+        lowerBoundAnchorRatio,
+        upperBoundAnchorRatio,
+        8,
+        'TEST / USDT',
+        constants.AddressZero,
+        constants.AddressZero,
+        answerBaseUint,
+        validateAnswerEnabled,
+      )
     proxy = await aggregatorProxyFactory
       .connect(defaultAccount)
       .deploy(aggregator.address)

@@ -93,7 +93,7 @@ describe('SimpleWriteAccessController', () => {
       })
 
       it('announces the change via a log', async () => {
-        expect(tx)
+        await expect(tx)
           .to.emit(controller, 'AddedAccess')
           .withArgs(await personas.Eddy.getAddress())
       })
@@ -131,7 +131,7 @@ describe('SimpleWriteAccessController', () => {
       })
 
       it('announces the change via a log', async () => {
-        expect(tx)
+        await expect(tx)
           .to.emit(controller, 'RemovedAccess')
           .withArgs(await personas.Eddy.getAddress())
       })

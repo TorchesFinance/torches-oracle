@@ -6,6 +6,7 @@ import "./interfaces/AggregatorV2V3Interface.sol";
 import "./interfaces/TypeAndVersionInterface.sol";
 import "./OwnerIsCreator.sol";
 import "./SafeMath.sol";
+import "./AnchoredView.sol";
 
 /**
   * @notice Onchain verification of reports from the offchain reporting protocol
@@ -13,7 +14,7 @@ import "./SafeMath.sol";
   * @dev For details on its operation, see the offchain reporting protocol design
   * @dev doc, which refers to this contract as simply the "contract".
 */
-contract OffchainAggregator is OwnerIsCreator, AggregatorV2V3Interface, TypeAndVersionInterface {
+contract OffchainAggregator is OwnerIsCreator, AggregatorV2V3Interface, TypeAndVersionInterface, AnchoredView {
   using SafeMath for uint256;
   // Storing these fields used on the hot path in a HotVars variable reduces the
   // retrieval of all of them to a single SLOAD. If any further fields are
@@ -86,8 +87,12 @@ contract OffchainAggregator is OwnerIsCreator, AggregatorV2V3Interface, TypeAndV
     uint8 _lowerBoundAnchorRatio,
     uint8 _upperBoundAnchorRatio,
     uint8 _decimals,
-    string memory _description
-  ) {
+    string memory _description,
+    address _mojitoOracle,
+    address _witnetOracle,
+    uint256 _answerBaseUint,
+    bool _validateAnswerEnabled
+  ) AnchoredView(_mojitoOracle, _witnetOracle, _answerBaseUint, _validateAnswerEnabled) {
     lowerBoundAnchorRatio = _lowerBoundAnchorRatio;
     upperBoundAnchorRatio = _upperBoundAnchorRatio;
     decimals = _decimals;
@@ -335,15 +340,17 @@ contract OffchainAggregator is OwnerIsCreator, AggregatorV2V3Interface, TypeAndV
       require(signer.active, "signature error");
     }
 
-    uint256 previousAnswer = uint192(s_transmissions[s_hotVars.latestAggregatorRoundId].answer);
-    if (previousAnswer > 0) {
-      uint256 minAnswer = previousAnswer.mul(lowerBoundAnchorRatio).div(1e2);
-      uint256 maxAnswer = previousAnswer.mul(upperBoundAnchorRatio).div(1e2);
-
-      require(minAnswer <= median && median <= maxAnswer, "median is out of min-max range");
+    if (validateAnswerEnabled) {
+      if (_validateAnswer(uint256(median))) {
+        _transmit(int192(median), observationsTimestamp);
+      }
+    } else {
+      uint256 previousAnswer = uint192(s_transmissions[s_hotVars.latestAggregatorRoundId].answer);
+      if (previousAnswer > 0) {
+        require(isWithinAnchor(median, previousAnswer), "median is out of min-max range");
+      }
+      _transmit(int192(median), observationsTimestamp);
     }
-
-    _transmit(int192(median), observationsTimestamp);
   }
 
   function transmitWithForce(uint192 median) external onlyOwner {
@@ -372,6 +379,57 @@ contract OffchainAggregator is OwnerIsCreator, AggregatorV2V3Interface, TypeAndV
 
     // persist updates to hotVars
     s_hotVars = hotVars;
+  }
+
+  /// @notice The event emitted when new prices are posted but the stored price is not updated due to the anchor
+  event AnswerGuarded(
+    uint32 indexed aggregatorRoundId,
+    uint256 reporterPrice,
+    uint256 anchorMojitoPrice,
+    uint256 anchorWitnetPrice,
+    uint256 updatedAt
+  );
+
+  /**
+   * @notice This is called by the reporter whenever a new price is posted on-chain
+   * @param reporterPrice the price from the reporter
+   * @return valid bool
+   */
+  function _validateAnswer(uint256 reporterPrice) internal returns (bool) {
+    uint256 anchorMojitoPrice = _getMojitoPriceInternal();
+
+    if (isWithinAnchor(reporterPrice, anchorMojitoPrice)) {
+      return true;
+    } else {
+      uint256 anchorWitnetPrice = _getWitnetPriceInternal();
+      if (isWithinAnchor(reporterPrice, anchorWitnetPrice)) {
+        return true;
+      } else {
+        emit AnswerGuarded(
+          s_hotVars.latestAggregatorRoundId + 1,
+          reporterPrice,
+          anchorMojitoPrice,
+          anchorWitnetPrice,
+          block.timestamp
+        );
+        return false;
+      }
+    }
+  }
+
+  /**
+   * @notice This is called by the reporter whenever a new price is posted on-chain
+   * @param reporterPrice the price from the reporter
+   * @param anchorPrice the price from the other contract
+   * @return valid bool
+   */
+  function isWithinAnchor(uint256 reporterPrice, uint256 anchorPrice) internal view returns (bool) {
+    if (reporterPrice > 0 && anchorPrice > 0) {
+      uint256 minAnswer = anchorPrice.mul(lowerBoundAnchorRatio).div(1e2);
+      uint256 maxAnswer = anchorPrice.mul(upperBoundAnchorRatio).div(1e2);
+      return minAnswer <= reporterPrice && reporterPrice <= maxAnswer;
+    }
+    return false;
   }
 
   /*

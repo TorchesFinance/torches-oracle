@@ -15,6 +15,8 @@ import { publicAbi } from './test-helpers/helpers'
 let personas: Personas
 let ocrAggregatorFactory: ContractFactory
 let ocrTestFactory: ContractFactory
+let mojitoOracleTestFactory: ContractFactory
+let witnetPriceTestFactory: ContractFactory
 
 before(async () => {
   personas = (await getUsers()).personas
@@ -24,6 +26,12 @@ before(async () => {
   ocrTestFactory = await ethers.getContractFactory(
     'contracts/tests/OCRTestHelper.sol:OCRTestHelper',
   )
+  mojitoOracleTestFactory = await ethers.getContractFactory(
+    'contracts/tests/MockMojitoOracle.sol:MockMojitoOracle',
+  )
+  witnetPriceTestFactory = await ethers.getContractFactory(
+    'contracts/tests/MockWitnetPriceRouter.sol:MockWitnetPriceRouter',
+  )
 })
 
 describe('AccessControlledOffchainAggregator', () => {
@@ -31,8 +39,10 @@ describe('AccessControlledOffchainAggregator', () => {
   const maxUpperBoundAnchorRatio = 120
   const lowerBoundAnchorRatio = 95
   const upperBoundAnchorRatio = 105
-  const decimals = 18
-  const description = 'KCS / BTC'
+  const decimals = 8
+  const answerBaseUint = 1e8
+  const validateAnswerEnabled = false
+  const description = 'KCS / USDT'
   const typeAndVersion = 'AccessControlledOffchainAggregator 1.0.0'
   const initConfigCount = BigNumber.from(0)
   const max = BigNumber.from(2).pow(32)
@@ -42,6 +52,8 @@ describe('AccessControlledOffchainAggregator', () => {
   let aggregator: Contract
   let aggregatorTest: Contract
   let configBlockNumber: BigNumber
+  let mojitoOracleTest: Contract
+  let witnetPriceTest: Contract
 
   async function setOCRConfig(
     aggregator: Contract,
@@ -119,6 +131,14 @@ describe('AccessControlledOffchainAggregator', () => {
   }
 
   beforeEach(async () => {
+    mojitoOracleTest = await mojitoOracleTestFactory
+      .connect(personas.Carol)
+      .deploy()
+
+    witnetPriceTest = await witnetPriceTestFactory
+      .connect(personas.Carol)
+      .deploy()
+
     aggregator = await ocrAggregatorFactory
       .connect(personas.Carol)
       .deploy(
@@ -126,21 +146,32 @@ describe('AccessControlledOffchainAggregator', () => {
         upperBoundAnchorRatio,
         decimals,
         description,
+        mojitoOracleTest.address,
+        witnetPriceTest.address,
+        answerBaseUint,
+        validateAnswerEnabled,
       )
   })
 
   it('has a limited public interface [ @skip-coverage ]', () => {
     publicAbi(aggregator, [
       'addAccess',
+      'answerBaseUint',
       'checkEnabled',
       'decimals',
       'description',
       'disableAccessCheck',
+      'disableAnswerValidate',
       'enableAccessCheck',
+      'enableAnswerValidate',
       'getAnswer',
       'getRoundData',
+      'getMojitoConfig',
+      'getMojitoPrice',
       'getTimestamp',
       'getTransmitters',
+      'getWitnetConfig',
+      'getWitnetPrice',
       'hasAccess',
       'latestAnswer',
       'latestConfigDetails',
@@ -148,8 +179,9 @@ describe('AccessControlledOffchainAggregator', () => {
       'latestRoundData',
       'latestTimestamp',
       'latestTransmissionDetails',
-      'upperBoundAnchorRatio',
       'lowerBoundAnchorRatio',
+      'mojitoOracle',
+      'upperBoundAnchorRatio',
       'owner',
       'removeAccess',
       'setAnchorRatio',
@@ -157,10 +189,16 @@ describe('AccessControlledOffchainAggregator', () => {
       'transmit',
       'transmitWithForce',
       'typeAndVersion',
+      'validateAnswerEnabled',
       'version',
+      'witnetOracle',
       // Owned methods:
       'acceptOwnership',
       'owner',
+      'setMojitoConfig',
+      'setMojitoOracle',
+      'setWitnetConfig',
+      'setWitnetOracle',
       'transferOwnership',
     ])
   })
@@ -215,7 +253,7 @@ describe('AccessControlledOffchainAggregator', () => {
         const tx = await aggregator
           .connect(personas.Carol)
           .setAnchorRatio(lowerBoundAnchorRatio, upperBoundAnchorRatio)
-        expect(tx)
+        await expect(tx)
           .to.emit(aggregator, 'AnchorRatioUpdated')
           .withArgs(lowerBoundAnchorRatio, upperBoundAnchorRatio)
       })
@@ -331,7 +369,7 @@ describe('AccessControlledOffchainAggregator', () => {
             ],
             [await personas.Ned.getAddress(), await personas.Neil.getAddress()],
           )
-        expect(tx)
+        await expect(tx)
           .to.emit(aggregator, 'ConfigSet')
           .withArgs(
             configBlockNumber,
@@ -633,10 +671,10 @@ describe('AccessControlledOffchainAggregator', () => {
         BigNumber.from(observationsTimestamp).add(1).toNumber(),
       )
 
-      expect(tx)
+      await expect(tx)
         .to.emit(aggregator, 'NewTransmission')
         .withArgs(
-          1,
+          2,
           median,
           await personas.Ned.getAddress(),
           BigNumber.from(observationsTimestamp).add(1).toNumber(),
@@ -650,10 +688,10 @@ describe('AccessControlledOffchainAggregator', () => {
         //2090-12-30 00:00:00
         BigNumber.from(observationsTimestamp).add(2).toNumber(),
       )
-      expect(tx2)
+      await expect(tx2)
         .to.emit(aggregator, 'NewRound')
         .withArgs(
-          2,
+          3,
           constants.AddressZero,
           BigNumber.from(observationsTimestamp).add(2).toNumber(),
         )
@@ -780,9 +818,9 @@ describe('AccessControlledOffchainAggregator', () => {
 
       const block = await ethers.provider.getBlock(tx.blockNumber!)
 
-      expect(tx)
+      await expect(tx)
         .to.emit(aggregator, 'NewTransmission')
-        .withArgs(1, median, await personas.Ned.getAddress(), block.timestamp)
+        .withArgs(1, median, await personas.Carol.getAddress(), block.timestamp)
 
       const tx2 = await transmitForce(aggregator, personas.Carol, median)
 
@@ -790,7 +828,7 @@ describe('AccessControlledOffchainAggregator', () => {
 
       const block2 = await ethers.provider.getBlock(receipt2.blockHash ?? '')
 
-      expect(tx2)
+      await expect(tx2)
         .to.emit(aggregator, 'NewRound')
         .withArgs(2, constants.AddressZero, block2.timestamp)
     })
