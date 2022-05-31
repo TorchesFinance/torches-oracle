@@ -34,6 +34,7 @@ contract AnchoredView is OwnerIsCreator {
     uint256 tokenCBaseUnit
   );
 
+  /// @notice emitted when mojito config are set
   struct WitnetConfig {
     bool available;
     bytes32 pairA;
@@ -153,7 +154,7 @@ contract AnchoredView is OwnerIsCreator {
    * @param _available is the price available
    * @param _tokenABaseUnit the number of wei in 1 tokenA
    * @param _tokenA underlying asset contract address
-   * @param _tokenB underlying asset contract address, optimal exchange rate when used
+   * @param _tokenB address of token bridge you wish to use, optimal exchange rate when used
    * @param _tokenC underlying asset contract address
    * @param _tokenCBaseUnit the number of wei in 1 tokenC
    * @dev must be called by owner
@@ -205,7 +206,7 @@ contract AnchoredView is OwnerIsCreator {
    * @notice sets winet parameters
    * @param _available is the price available
    * @param _pairA pairA erc2362 asset id
-   * @param _pairB pairB erc2362 asset id, optimal exchange rate when used
+   * @param _pairB pair of token bridge you wish to use, optimal exchange rate when used
    * @param _pairABaseUint pairA decimals
    * @param _pairBBaseUint pairB decimals
    * @dev must be called by owner
