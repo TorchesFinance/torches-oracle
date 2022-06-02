@@ -28,8 +28,7 @@ contract OffchainAggregator is OwnerIsCreator, AggregatorV2V3Interface, TypeAndV
   }
   HotVars internal s_hotVars;
 
-  // Transmission records the median answer from the transmit transaction at 发送中位数结果
-  // time timestamp
+  // Transmission records the median answer from the transmit transaction at time timestamp
   struct Transmission {
     int192 answer; // 192 bits ought to be enough for anyone
     uint32 observationsTimestamp; // when were observations made offchain
@@ -48,7 +47,9 @@ contract OffchainAggregator is OwnerIsCreator, AggregatorV2V3Interface, TypeAndV
   // makes it easier for offchain systems to extract config from logs
   address internal s_latestTransmitter;
 
+  // lowest answers for calculating the old price or the anchor price
   uint8 public lowerBoundAnchorRatio; //0.8e2
+  // highest answers for calculating the old price or the anchor price
   uint8 public upperBoundAnchorRatio; //1.2e2
 
   uint8 internal constant minLowerBoundAnchorRatio = 0.8e2;
@@ -78,10 +79,14 @@ contract OffchainAggregator is OwnerIsCreator, AggregatorV2V3Interface, TypeAndV
   address[] internal s_transmittersList;
 
   /*
-   * @param _minAnswer lowest answer the median of a report is allowed to be
-   * @param _maxAnswer highest answer the median of a report is allowed to be
+   * @param _lowerBoundAnchorRatio lowest answers for calculating the old price or the anchor price
+   * @param _upperBoundAnchorRatio highest answers for calculating the old price or the anchor price
    * @param _decimals answers are stored in fixed-point format, with this many digits of precision
    * @param _description short human-readable description of observable this contract's answers pertain to
+   * @param _mojitoOracle address of the mojito oracle contract
+   * @param _witnetOracle address of the witnet oracle contract
+   * @param _answerBaseUint how many digits of precision to retain, in 1e-decimals token units
+   * @param _validateAnswerEnabled whether to enable the switch for validate answer
    */
   constructor(
     uint8 _lowerBoundAnchorRatio,

@@ -68,6 +68,12 @@ contract AnchoredView is OwnerIsCreator {
   event ValidateAnswerEnabled();
   event ValidateAnswerDisabled();
 
+  /*
+   * @param _mojitoOracle address of the mojito oracle contract
+   * @param _witnetOracle address of the witnet oracle contract
+   * @param _answerBaseUint how many digits of precision to retain, in 1e-decimals token units
+   * @param _validateAnswerEnabled whether to enable the switch for validate answer
+   */
   constructor(
     address _mojitoOracle,
     address _witnetOracle,
