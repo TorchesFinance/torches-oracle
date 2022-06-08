@@ -1,27 +1,27 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity ^0.7.0;
-
-import "../interfaces/IMojitoOracle.sol";
 
 /**
  * @title MockMojitoOracle
  */
-contract MockMojitoOracle is IMojitoOracle {
-  uint256 public s_amountOut;
+contract MockMojitoOracle {
+  uint256 s_amount;
 
-  function updateAmountOut(uint256 amountOut) external {
-    s_amountOut = amountOut;
+  function updatePrice(uint256 _amount) external {
+    s_amount = _amount;
   }
 
-  function consult(
-    address tokenIn,
-    uint256 amountIn,
-    address tokenOut
-  ) external view override returns (uint256 amountOut) {
-    require(tokenIn != address(0));
-    require(tokenOut != address(0));
-    require(amountIn > 0);
-    return s_amountOut;
+  function getMojitoTwap(bytes32 pairId) external view returns (uint256) {
+    require(pairId != "");
+    return s_amount;
+  }
+
+  function currencyPairId(string memory _caption) external pure returns (bytes32) {
+    return keccak256(bytes(_caption));
+  }
+
+  function lookupERC2362ID(bytes32 pairId) external pure returns (string memory _caption) {
+    require(pairId != "");
+    return "Price-KCS/USDT-18";
   }
 }

@@ -10,6 +10,8 @@
     "test:aocr": "hardhat test test/AccessControlledOffchainAggregator.test.ts",
     "test:ocr": "hardhat test test/OffchainAggregator.test.ts",
     "test:ag": "hardhat test test/EACAggregatorProxy.test.ts",
+    "test:mo": "hardhat test test/MojitoOracle.test.ts",
+    "test:mop": "hardhat test test/MojitoOracleProxy.test.ts",
     "size": "hardhat size-contracts",
     "clean": "hardhat clean",
     "compile": "hardhat compile",
