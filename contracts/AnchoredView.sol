@@ -11,42 +11,31 @@ contract AnchoredView is OwnerIsCreator {
 
   bool public validateAnswerEnabled;
 
-  uint256 public immutable answerBaseUint;
+  uint256 public immutable answerBaseUnit;
 
   struct MojitoConfig {
     bool available;
-    address tokenA;
-    address tokenB;
-    address tokenC;
-    uint256 tokenABaseUnit;
-    uint256 tokenCBaseUnit;
+    bytes32 pairA;
+    uint256 pairABaseUnit;
   }
 
   MojitoConfig internal mojitoConfig;
 
   /// @notice emitted when mojito config are set
-  event MojitoConfigSet(
-    bool available,
-    address tokenA,
-    address tokenB,
-    address tokenC,
-    uint256 tokenABaseUnit,
-    uint256 tokenCBaseUnit
-  );
+  event MojitoConfigSet(bool available, bytes32 pairA, uint256 pairABaseUnit);
 
-  /// @notice emitted when mojito config are set
   struct WitnetConfig {
     bool available;
     bytes32 pairA;
     bytes32 pairB;
-    uint256 pairABaseUint;
-    uint256 pairBBaseUint;
+    uint256 pairABaseUnit;
+    uint256 pairBBaseUnit;
   }
 
   WitnetConfig internal witnetConfig;
 
   /// @notice emitted when witnet config are set
-  event WitnetConfigSet(bool available, bytes32 pairA, bytes32 pairB, uint256 pairABaseUint, uint256 pairBBaseUint);
+  event WitnetConfigSet(bool available, bytes32 pairA, bytes32 pairB, uint256 pairABaseUnit, uint256 pairBBaseUnit);
 
   // The price oracle
   IMojitoOracle public mojitoOracle;
@@ -71,19 +60,19 @@ contract AnchoredView is OwnerIsCreator {
   /*
    * @param _mojitoOracle address of the mojito oracle contract
    * @param _witnetOracle address of the witnet oracle contract
-   * @param _answerBaseUint how many digits of precision to retain, in 1e-decimals token units
+   * @param _answerBaseUnit how many digits of precision to retain, in 1e-decimals token units
    * @param _validateAnswerEnabled whether to enable the switch for validate answer
    */
   constructor(
     address _mojitoOracle,
     address _witnetOracle,
-    uint256 _answerBaseUint,
+    uint256 _answerBaseUnit,
     bool _validateAnswerEnabled
   ) {
     _setMojitoOracle(IMojitoOracle(_mojitoOracle));
     _setWitnetOracle(IERC2362(_witnetOracle));
 
-    answerBaseUint = _answerBaseUint;
+    answerBaseUnit = _answerBaseUnit;
     validateAnswerEnabled = _validateAnswerEnabled;
   }
 
@@ -121,18 +110,8 @@ contract AnchoredView is OwnerIsCreator {
 
   function _getMojitoPriceInternal() internal view returns (uint256) {
     if (mojitoConfig.available) {
-      if (mojitoConfig.tokenB == address(0)) {
-        uint256 twapPrice = mojitoOracle.consult(mojitoConfig.tokenA, mojitoConfig.tokenABaseUnit, mojitoConfig.tokenC);
-        return twapPrice.mul(answerBaseUint).div(mojitoConfig.tokenCBaseUnit);
-      } else {
-        uint256 tokenABAmount = mojitoOracle.consult(
-          mojitoConfig.tokenA,
-          mojitoConfig.tokenABaseUnit,
-          mojitoConfig.tokenB
-        );
-        uint256 twapPrice = mojitoOracle.consult(mojitoConfig.tokenB, tokenABAmount, mojitoConfig.tokenC);
-        return twapPrice.mul(answerBaseUint).div(mojitoConfig.tokenCBaseUnit);
-      }
+      uint256 twapPrice = mojitoOracle.getMojitoTwap(mojitoConfig.pairA);
+      return twapPrice.mul(answerBaseUnit).div(mojitoConfig.pairABaseUnit);
     }
     return 0;
   }
@@ -142,13 +121,13 @@ contract AnchoredView is OwnerIsCreator {
       int256 pairAPrice;
       (pairAPrice, , ) = witnetOracle.valueFor(witnetConfig.pairA);
       if (witnetConfig.pairB == "") {
-        return uint256(pairAPrice).mul(answerBaseUint).div(witnetConfig.pairABaseUint);
+        return uint256(pairAPrice).mul(answerBaseUnit).div(witnetConfig.pairABaseUnit);
       } else {
         int256 pairBPrice;
         (pairBPrice, , ) = witnetOracle.valueFor(witnetConfig.pairB);
         return
-          uint256(pairAPrice).mul(uint256(pairBPrice)).mul(answerBaseUint).div(witnetConfig.pairABaseUint).div(
-            witnetConfig.pairBBaseUint
+          uint256(pairAPrice).mul(uint256(pairBPrice)).mul(answerBaseUnit).div(witnetConfig.pairABaseUnit).div(
+            witnetConfig.pairBBaseUnit
           );
       }
     }
@@ -158,28 +137,19 @@ contract AnchoredView is OwnerIsCreator {
   /**
    * @notice sets mojito parameters
    * @param _available is the price available
-   * @param _tokenABaseUnit the number of wei in 1 tokenA
-   * @param _tokenA underlying asset contract address
-   * @param _tokenB address of token bridge you wish to use, optimal exchange rate when used
-   * @param _tokenC underlying asset contract address
-   * @param _tokenCBaseUnit the number of wei in 1 tokenC
+   * @param _pairA pairA erc2362 asset id
+   * @param _pairABaseUnit pairA decimals
    * @dev must be called by owner
    */
   function setMojitoConfig(
     bool _available,
-    address _tokenA,
-    address _tokenB,
-    address _tokenC,
-    uint256 _tokenABaseUnit,
-    uint256 _tokenCBaseUnit
+    bytes32 _pairA,
+    uint256 _pairABaseUnit
   ) external onlyOwner {
     mojitoConfig.available = _available;
-    mojitoConfig.tokenA = _tokenA;
-    mojitoConfig.tokenB = _tokenB;
-    mojitoConfig.tokenC = _tokenC;
-    mojitoConfig.tokenABaseUnit = _tokenABaseUnit;
-    mojitoConfig.tokenCBaseUnit = _tokenCBaseUnit;
-    emit MojitoConfigSet(_available, _tokenA, _tokenB, _tokenC, _tokenABaseUnit, _tokenCBaseUnit);
+    mojitoConfig.pairA = _pairA;
+    mojitoConfig.pairABaseUnit = _pairABaseUnit;
+    emit MojitoConfigSet(_available, _pairA, _pairABaseUnit);
   }
 
   /*
@@ -191,45 +161,35 @@ contract AnchoredView is OwnerIsCreator {
     view
     returns (
       bool available,
-      address tokenA,
-      address tokenB,
-      address tokenC,
-      uint256 tokenABaseUnit,
-      uint256 tokenCBaseUnit
+      bytes32 pairA,
+      uint256 pairABaseUnit
     )
   {
-    return (
-      mojitoConfig.available,
-      mojitoConfig.tokenA,
-      mojitoConfig.tokenB,
-      mojitoConfig.tokenC,
-      mojitoConfig.tokenABaseUnit,
-      mojitoConfig.tokenCBaseUnit
-    );
+    return (mojitoConfig.available, mojitoConfig.pairA, mojitoConfig.pairABaseUnit);
   }
 
   /**
    * @notice sets winet parameters
    * @param _available is the price available
    * @param _pairA pairA erc2362 asset id
-   * @param _pairB pair of token bridge you wish to use, optimal exchange rate when used
-   * @param _pairABaseUint pairA decimals
-   * @param _pairBBaseUint pairB decimals
+   * @param _pairB pairB erc2362 asset id, optimal exchange rate when used
+   * @param _pairABaseUnit pairA decimals
+   * @param _pairBBaseUnit pairB decimals
    * @dev must be called by owner
    */
   function setWitnetConfig(
     bool _available,
     bytes32 _pairA,
     bytes32 _pairB,
-    uint256 _pairABaseUint,
-    uint256 _pairBBaseUint
+    uint256 _pairABaseUnit,
+    uint256 _pairBBaseUnit
   ) external onlyOwner {
     witnetConfig.available = _available;
     witnetConfig.pairA = _pairA;
     witnetConfig.pairB = _pairB;
-    witnetConfig.pairABaseUint = _pairABaseUint;
-    witnetConfig.pairBBaseUint = _pairBBaseUint;
-    emit WitnetConfigSet(_available, _pairA, _pairB, _pairABaseUint, _pairBBaseUint);
+    witnetConfig.pairABaseUnit = _pairABaseUnit;
+    witnetConfig.pairBBaseUnit = _pairBBaseUnit;
+    emit WitnetConfigSet(_available, _pairA, _pairB, _pairABaseUnit, _pairBBaseUnit);
   }
 
   /*
@@ -243,16 +203,16 @@ contract AnchoredView is OwnerIsCreator {
       bool available,
       bytes32 pairA,
       bytes32 pairB,
-      uint256 pairABaseUint,
-      uint256 pairBBaseUint
+      uint256 pairABaseUnit,
+      uint256 pairBBaseUnit
     )
   {
     return (
       witnetConfig.available,
       witnetConfig.pairA,
       witnetConfig.pairB,
-      witnetConfig.pairABaseUint,
-      witnetConfig.pairBBaseUint
+      witnetConfig.pairABaseUnit,
+      witnetConfig.pairBBaseUnit
     );
   }
 

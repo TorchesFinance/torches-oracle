@@ -59,7 +59,7 @@ describe('AggregatorProxy', () => {
   const maxId = BigNumber.from(2).pow(BigNumber.from(64).add(16)).sub(1)
   const lowerBoundAnchorRatio = 95
   const upperBoundAnchorRatio = 105
-  const answerBaseUint = 1e8
+  const answerBaseUnit = 1e8
   const validateAnswerEnabled = false
 
   let aggregator: Contract
@@ -82,7 +82,7 @@ describe('AggregatorProxy', () => {
         'TEST / USDT',
         constants.AddressZero,
         constants.AddressZero,
-        answerBaseUint,
+        answerBaseUnit,
         validateAnswerEnabled,
       )
     proxy = await aggregatorProxyFactory

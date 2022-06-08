@@ -85,7 +85,7 @@ contract OffchainAggregator is OwnerIsCreator, AggregatorV2V3Interface, TypeAndV
    * @param _description short human-readable description of observable this contract's answers pertain to
    * @param _mojitoOracle address of the mojito oracle contract
    * @param _witnetOracle address of the witnet oracle contract
-   * @param _answerBaseUint how many digits of precision to retain, in 1e-decimals token units
+   * @param _answerBaseUnit how many digits of precision to retain, in 1e-decimals token units
    * @param _validateAnswerEnabled whether to enable the switch for validate answer
    */
   constructor(
@@ -95,9 +95,9 @@ contract OffchainAggregator is OwnerIsCreator, AggregatorV2V3Interface, TypeAndV
     string memory _description,
     address _mojitoOracle,
     address _witnetOracle,
-    uint256 _answerBaseUint,
+    uint256 _answerBaseUnit,
     bool _validateAnswerEnabled
-  ) AnchoredView(_mojitoOracle, _witnetOracle, _answerBaseUint, _validateAnswerEnabled) {
+  ) AnchoredView(_mojitoOracle, _witnetOracle, _answerBaseUnit, _validateAnswerEnabled) {
     lowerBoundAnchorRatio = _lowerBoundAnchorRatio;
     upperBoundAnchorRatio = _upperBoundAnchorRatio;
     decimals = _decimals;

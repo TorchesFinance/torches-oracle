@@ -35,7 +35,7 @@ describe('OffchainAggregator', () => {
   const upperBoundAnchorRatio = 105
   const decimals = 8
   const description = 'KCS / USDT'
-  const answerBaseUint = 1e8
+  const answerBaseUnit = 1e8
   const validateAnswerEnabled = true
   const typeAndVersion = 'OffchainAggregator 1.0.0'
   const initConfigCount = BigNumber.from(0)
@@ -104,14 +104,14 @@ describe('OffchainAggregator', () => {
         description,
         mojitoOracleTest.address,
         witnetPriceTest.address,
-        answerBaseUint,
+        answerBaseUnit,
         validateAnswerEnabled,
       )
   })
 
   it('has a limited public interface [ @skip-coverage ]', () => {
     publicAbi(aggregator, [
-      'answerBaseUint',
+      'answerBaseUnit',
       'decimals',
       'description',
       'disableAnswerValidate',
@@ -379,37 +379,24 @@ describe('OffchainAggregator', () => {
       beforeEach(async () => {
         const kcsToken = '0x4446Fc4eb47f2f6586f9fAAb68B3498F86C07521'
         const usdcToken = '0x980a5AfEf3D17aD98635F6C5aebCBAedEd3c3430'
+        const kcsUsdtPairHash =
+          '0x31debffc453c5d04a78431e7bc28098c606d2bbeea22f10a35809924a201a977'
 
         await mojitoOracleTest
           .connect(personas.Carol)
-          .updateAmountOut(priceFormMojito)
+          .updatePrice(priceFormMojito)
 
         const tx = await aggregator
           .connect(personas.Carol)
-          .setMojitoConfig(
-            true,
-            kcsToken,
-            constants.AddressZero,
-            usdcToken,
-            constants.WeiPerEther,
-            constants.WeiPerEther,
-          )
+          .setMojitoConfig(true, kcsUsdtPairHash, constants.WeiPerEther)
         await expect(tx)
           .to.emit(aggregator, 'MojitoConfigSet')
-          .withArgs(
-            true,
-            kcsToken,
-            constants.AddressZero,
-            usdcToken,
-            constants.WeiPerEther,
-            constants.WeiPerEther,
-          )
+          .withArgs(true, kcsUsdtPairHash, constants.WeiPerEther)
 
         const mojitoConfig = await aggregator.getMojitoConfig()
         assert.equal(true, mojitoConfig.available)
-        assert.equal(kcsToken, mojitoConfig.tokenA)
-        assert.equal(constants.AddressZero, mojitoConfig.tokenB)
-        assert.equal(usdcToken, mojitoConfig.tokenC)
+        assert.equal(kcsUsdtPairHash, mojitoConfig.pairA)
+        bigNumEquals(constants.WeiPerEther, mojitoConfig.pairABaseUnit)
         bigNumEquals(
           BigNumber.from(3000010000678),
           await aggregator.getMojitoPrice(),
@@ -441,37 +428,23 @@ describe('OffchainAggregator', () => {
         const btcToken = '0xfA93C12Cd345c658bc4644D1D4E1B9615952258C'
         const kcsToken = '0x4446Fc4eb47f2f6586f9fAAb68B3498F86C07521'
         const usdcToken = '0x980a5AfEf3D17aD98635F6C5aebCBAedEd3c3430'
+        const kcsUsdtPairHash =
+          '0x31debffc453c5d04a78431e7bc28098c606d2bbeea22f10a35809924a201a977'
 
         await mojitoOracleTest
           .connect(personas.Carol)
-          .updateAmountOut(priceFormMojito)
+          .updatePrice(priceFormMojito)
 
         const tx = await aggregator
           .connect(personas.Carol)
-          .setMojitoConfig(
-            true,
-            btcToken,
-            kcsToken,
-            usdcToken,
-            constants.WeiPerEther,
-            constants.WeiPerEther,
-          )
+          .setMojitoConfig(true, kcsUsdtPairHash, constants.WeiPerEther)
         await expect(tx)
           .to.emit(aggregator, 'MojitoConfigSet')
-          .withArgs(
-            true,
-            btcToken,
-            kcsToken,
-            usdcToken,
-            constants.WeiPerEther,
-            constants.WeiPerEther,
-          )
+          .withArgs(true, kcsUsdtPairHash, constants.WeiPerEther)
 
         const mojitoConfig = await aggregator.getMojitoConfig()
         assert.equal(true, mojitoConfig.available)
-        assert.equal(btcToken, mojitoConfig.tokenA)
-        assert.equal(kcsToken, mojitoConfig.tokenB)
-        assert.equal(usdcToken, mojitoConfig.tokenC)
+        assert.equal(kcsUsdtPairHash, mojitoConfig.pairA)
         bigNumEquals(
           BigNumber.from(3000010000678),
           await aggregator.getMojitoPrice(),
@@ -503,37 +476,23 @@ describe('OffchainAggregator', () => {
         const btcToken = '0xfA93C12Cd345c658bc4644D1D4E1B9615952258C'
         const kcsToken = '0x4446Fc4eb47f2f6586f9fAAb68B3498F86C07521'
         const usdcToken = '0x980a5AfEf3D17aD98635F6C5aebCBAedEd3c3430'
+        const kcsUsdtPairHash =
+          '0x31debffc453c5d04a78431e7bc28098c606d2bbeea22f10a35809924a201a977'
 
         await mojitoOracleTest
           .connect(personas.Carol)
-          .updateAmountOut(constants.WeiPerEther)
+          .updatePrice(constants.WeiPerEther)
 
         const tx = await aggregator
           .connect(personas.Carol)
-          .setMojitoConfig(
-            true,
-            btcToken,
-            kcsToken,
-            usdcToken,
-            constants.WeiPerEther,
-            constants.WeiPerEther,
-          )
+          .setMojitoConfig(true, kcsUsdtPairHash, constants.WeiPerEther)
         await expect(tx)
           .to.emit(aggregator, 'MojitoConfigSet')
-          .withArgs(
-            true,
-            btcToken,
-            kcsToken,
-            usdcToken,
-            constants.WeiPerEther,
-            constants.WeiPerEther,
-          )
+          .withArgs(true, kcsUsdtPairHash, constants.WeiPerEther)
 
         const mojitoConfig = await aggregator.getMojitoConfig()
         assert.equal(true, mojitoConfig.available)
-        assert.equal(btcToken, mojitoConfig.tokenA)
-        assert.equal(kcsToken, mojitoConfig.tokenB)
-        assert.equal(usdcToken, mojitoConfig.tokenC)
+        assert.equal(kcsUsdtPairHash, mojitoConfig.pairA)
         bigNumEquals(
           BigNumber.from(100000000),
           await aggregator.getMojitoPrice(),
@@ -568,7 +527,7 @@ describe('OffchainAggregator', () => {
 
         await mojitoOracleTest
           .connect(personas.Carol)
-          .updateAmountOut(priceFormMojito)
+          .updatePrice(priceFormMojito)
 
         await witnetPriceTest
           .connect(personas.Carol)
@@ -576,28 +535,14 @@ describe('OffchainAggregator', () => {
 
         const tx = await aggregator
           .connect(personas.Carol)
-          .setMojitoConfig(
-            false,
-            kcsToken,
-            constants.AddressZero,
-            usdcToken,
-            constants.WeiPerEther,
-            constants.WeiPerEther,
-          )
+          .setMojitoConfig(false, kcsUsdtPairHash, constants.WeiPerEther)
         await expect(tx)
           .to.emit(aggregator, 'MojitoConfigSet')
-          .withArgs(
-            false,
-            kcsToken,
-            constants.AddressZero,
-            usdcToken,
-            constants.WeiPerEther,
-            constants.WeiPerEther,
-          )
+          .withArgs(false, kcsUsdtPairHash, constants.WeiPerEther)
 
         const mojitoConfig = await aggregator.getMojitoConfig()
         assert.equal(false, mojitoConfig.available)
-        assert.equal(kcsToken, mojitoConfig.tokenA)
+        assert.equal(kcsUsdtPairHash, mojitoConfig.pairA)
         bigNumEquals(BigNumber.from(0), await aggregator.getMojitoPrice())
 
         const tx2 = await aggregator
@@ -622,7 +567,7 @@ describe('OffchainAggregator', () => {
         const witnetConfig = await aggregator.getWitnetConfig()
         assert.equal(true, witnetConfig.available)
         assert.equal(kcsUsdtPairHash, witnetConfig.pairA)
-        bigNumEquals(BigNumber.from(10).pow(6), witnetConfig.pairABaseUint)
+        bigNumEquals(BigNumber.from(10).pow(6), witnetConfig.pairABaseUnit)
         // 8 decimals
         bigNumEquals(
           BigNumber.from(priceFormWitnet).mul(100),
@@ -659,7 +604,7 @@ describe('OffchainAggregator', () => {
 
         await mojitoOracleTest
           .connect(personas.Carol)
-          .updateAmountOut(priceFormMojito)
+          .updatePrice(priceFormMojito)
 
         await witnetPriceTest
           .connect(personas.Carol)
@@ -690,14 +635,14 @@ describe('OffchainAggregator', () => {
         assert.equal(true, witnetConfig.available)
         assert.equal(mjtKcsPairHash, witnetConfig.pairA)
         assert.equal(kcsUsdtPairHash, witnetConfig.pairB)
-        bigNumEquals(BigNumber.from(10).pow(6), witnetConfig.pairABaseUint)
-        bigNumEquals(BigNumber.from(10).pow(6), witnetConfig.pairBBaseUint)
+        bigNumEquals(BigNumber.from(10).pow(6), witnetConfig.pairABaseUnit)
+        bigNumEquals(BigNumber.from(10).pow(6), witnetConfig.pairBBaseUnit)
         // 8 decimals
         let witnetPrice = BigNumber.from(priceFormWitnet)
           .mul(priceFormWitnet)
-          .mul(answerBaseUint)
-          .div(witnetConfig.pairABaseUint)
-          .div(witnetConfig.pairBBaseUint)
+          .mul(answerBaseUnit)
+          .div(witnetConfig.pairABaseUnit)
+          .div(witnetConfig.pairBBaseUnit)
         bigNumEquals(witnetPrice, await aggregator.getWitnetPrice())
 
         // console.log(witnetPrice.toString())
@@ -735,9 +680,9 @@ describe('OffchainAggregator', () => {
             0,
             BigNumber.from(priceFormWitnet)
               .mul(priceFormWitnet)
-              .mul(answerBaseUint)
-              .div(witnetConfig.pairABaseUint)
-              .div(witnetConfig.pairBBaseUint),
+              .mul(answerBaseUnit)
+              .div(witnetConfig.pairABaseUnit)
+              .div(witnetConfig.pairBBaseUnit),
             block.timestamp,
           )
       })
@@ -747,7 +692,7 @@ describe('OffchainAggregator', () => {
       beforeEach(async () => {
         await mojitoOracleTest
           .connect(personas.Carol)
-          .updateAmountOut(priceFormMojito)
+          .updatePrice(priceFormMojito)
 
         await witnetPriceTest
           .connect(personas.Carol)

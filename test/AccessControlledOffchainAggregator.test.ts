@@ -40,7 +40,7 @@ describe('AccessControlledOffchainAggregator', () => {
   const lowerBoundAnchorRatio = 95
   const upperBoundAnchorRatio = 105
   const decimals = 8
-  const answerBaseUint = 1e8
+  const answerBaseUnit = 1e8
   const validateAnswerEnabled = false
   const description = 'KCS / USDT'
   const typeAndVersion = 'AccessControlledOffchainAggregator 1.0.0'
@@ -148,7 +148,7 @@ describe('AccessControlledOffchainAggregator', () => {
         description,
         mojitoOracleTest.address,
         witnetPriceTest.address,
-        answerBaseUint,
+        answerBaseUnit,
         validateAnswerEnabled,
       )
   })
@@ -156,7 +156,7 @@ describe('AccessControlledOffchainAggregator', () => {
   it('has a limited public interface [ @skip-coverage ]', () => {
     publicAbi(aggregator, [
       'addAccess',
-      'answerBaseUint',
+      'answerBaseUnit',
       'checkEnabled',
       'decimals',
       'description',
