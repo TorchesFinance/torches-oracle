@@ -8,7 +8,7 @@ contract MockMojitoFactory {
     s_pair = pair;
   }
 
-  function getPair(address tokenA, address tokenB) external view returns (address pair) {
+  function getPair(address tokenA, address tokenB) external view returns (address) {
     require(tokenA != address(0));
     require(tokenB != address(0));
     return s_pair;

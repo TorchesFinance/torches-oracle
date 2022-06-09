@@ -33,7 +33,6 @@ describe('MojitoOracle', () => {
   let mockMojitoFactory: Contract
 
   const caption = 'Price-KCS/USDT-18'
-  const decimals = 18
   const base = 'KCS'
   const quote = 'USDT'
   const tokenA = '0x75AA60668aDcbC064049a496B70caAEfa1d272d5'
@@ -56,14 +55,16 @@ describe('MojitoOracle', () => {
     publicAbi(mojitoOracle, [
       'consult',
       'currencyPairId',
+      'DECIMALS',
       'factory',
-      'getMojitoConfig',
+      'getFeedConfig',
       'getMojitoTwap',
+      'getPair',
       'GRANULARITY',
       'lookupERC2362ID',
       'pairObservations',
       'PERIOD',
-      'setMojitoConfig',
+      'setFeedConfig',
       'update',
       'EXP_SCALE',
       // Ownable methods:
@@ -79,12 +80,11 @@ describe('MojitoOracle', () => {
     })
   })
 
-  describe('#setMojitoConfig', () => {
+  describe('#setFeedConfig', () => {
     it('when called by a owner', async () => {
       const tx = await mojitoOracle
         .connect(defaultAccount)
-        .setMojitoConfig(
-          decimals,
+        .setFeedConfig(
           base,
           quote,
           tokenA,
@@ -94,10 +94,9 @@ describe('MojitoOracle', () => {
           tokenCBaseUnit,
         )
       await expect(tx)
-        .to.emit(mojitoOracle, 'MojitoConfigSet')
+        .to.emit(mojitoOracle, 'FeedConfigSet')
         .withArgs(
           await mojitoOracle.currencyPairId(caption),
-          decimals,
           base,
           quote,
           tokenA,
@@ -106,14 +105,14 @@ describe('MojitoOracle', () => {
           tokenABaseUnit,
           tokenCBaseUnit,
         )
-      const mojitoConfig = await mojitoOracle.getMojitoConfig(
+      const feedConfig = await mojitoOracle.getFeedConfig(
         await mojitoOracle.currencyPairId(caption),
       )
-      assert.equal('KCS', mojitoConfig.base)
-      assert.equal(tokenA, mojitoConfig.tokenA)
-      assert.equal(tokenC, mojitoConfig.tokenC)
-      bigNumEquals(tokenABaseUnit, mojitoConfig.tokenABaseUnit)
-      bigNumEquals(tokenCBaseUnit, mojitoConfig.tokenCBaseUnit)
+      assert.equal('KCS', feedConfig.base)
+      assert.equal(tokenA, feedConfig.tokenA)
+      assert.equal(tokenC, feedConfig.tokenC)
+      bigNumEquals(tokenABaseUnit, feedConfig.tokenABaseUnit)
+      bigNumEquals(tokenCBaseUnit, feedConfig.tokenCBaseUnit)
 
       const _caption = await mojitoOracle.lookupERC2362ID(
         await mojitoOracle.currencyPairId(caption),
@@ -126,8 +125,7 @@ describe('MojitoOracle', () => {
         await evmRevert(
           mojitoOracle
             .connect(personas.Neil)
-            .setMojitoConfig(
-              decimals,
+            .setFeedConfig(
               base,
               quote,
               tokenA,
@@ -150,6 +148,18 @@ describe('MojitoOracle', () => {
           .mojitoOracle._consult(tokenA, tokenABaseUnit, tokenB),
         'Missing historical observation',
       )
+    })
+  })
+
+  describe('#getPair', () => {
+    const mockPairAddr = '0xf69F3Bd54Bd3db5D55c6D619196a6551526298D7'
+    beforeEach(async () => {
+      await mockMojitoFactory.connect(defaultAccount).setPair(mockPairAddr)
+    })
+
+    it('get pair addr', async () => {
+      const pairAddr = await mojitoOracle.getPair(tokenA, tokenC)
+      assert.equal(await mockMojitoFactory.getPair(tokenA, tokenC), pairAddr)
     })
   })
 

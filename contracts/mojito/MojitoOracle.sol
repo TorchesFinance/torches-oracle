@@ -17,8 +17,7 @@ contract MojitoOracle is IMojitoOracle, ConfirmedOwner {
     uint256 price1Cumulative;
   }
 
-  struct MojitoConfig {
-    uint256 decimals;
+  struct FeedConfig {
     string base;
     string quote;
     bytes32 pairId; // the keccak256 hash of the currency pair caption
@@ -31,7 +30,9 @@ contract MojitoOracle is IMojitoOracle, ConfirmedOwner {
 
   // the number of observations stored for each pair
   uint8 public constant GRANULARITY = 2;
-  /// @notice A common scaling factor to maintain precision
+  // answers are stored in fixed-point format, with this many digits of precision
+  uint256 public constant DECIMALS = 18;
+  // a common scaling factor to maintain precision
   uint256 public constant EXP_SCALE = 1e18;
   uint256 public constant PERIOD = 10 minutes;
   address public immutable factory;
@@ -40,12 +41,11 @@ contract MojitoOracle is IMojitoOracle, ConfirmedOwner {
   mapping(address => Observation[]) public pairObservations;
   // the latest index of observations
   mapping(address => uint8) internal latestIndex;
-  mapping(bytes4 => MojitoConfig) s_mojitoConfig;
+  mapping(bytes4 => FeedConfig) s_feedConfig;
 
-  /// @notice emitted when mojito config are set
-  event MojitoConfigSet(
+  /// @notice emitted when feed config are set
+  event FeedConfigSet(
     bytes32 pairId,
-    uint256 decimals,
     string base,
     string quote,
     address tokenA,
@@ -151,29 +151,33 @@ contract MojitoOracle is IMojitoOracle, ConfirmedOwner {
   }
 
   function _getPriceInternal(bytes32 pairId) internal view returns (uint256) {
-    MojitoConfig memory mojitoConfig = s_mojitoConfig[bytes4(pairId)];
-    require(address(mojitoConfig.tokenA) != address(0), "Unsupported currency pair");
-    if (mojitoConfig.tokenB == address(0)) {
-      uint256 twapPrice = _consult(mojitoConfig.tokenA, mojitoConfig.tokenABaseUnit, mojitoConfig.tokenC);
-      return twapPrice.mul(EXP_SCALE).div(mojitoConfig.tokenCBaseUnit);
+    FeedConfig memory feedConfig = s_feedConfig[bytes4(pairId)];
+    require(address(feedConfig.tokenA) != address(0), "Unsupported currency pair");
+    if (feedConfig.tokenB == address(0)) {
+      uint256 twapPrice = _consult(feedConfig.tokenA, feedConfig.tokenABaseUnit, feedConfig.tokenC);
+      return twapPrice.mul(EXP_SCALE).div(feedConfig.tokenCBaseUnit);
     } else {
-      uint256 tokenABAmount = _consult(mojitoConfig.tokenA, mojitoConfig.tokenABaseUnit, mojitoConfig.tokenB);
-      uint256 twapPrice = _consult(mojitoConfig.tokenB, tokenABAmount, mojitoConfig.tokenC);
-      return twapPrice.mul(EXP_SCALE).div(mojitoConfig.tokenCBaseUnit);
+      uint256 tokenABAmount = _consult(feedConfig.tokenA, feedConfig.tokenABaseUnit, feedConfig.tokenB);
+      uint256 twapPrice = _consult(feedConfig.tokenB, tokenABAmount, feedConfig.tokenC);
+      return twapPrice.mul(EXP_SCALE).div(feedConfig.tokenCBaseUnit);
     }
   }
 
   /*
-   * @notice gets the mojito config
+   * @notice gets the feed config
    * @return The config object
    */
-  function getMojitoConfig(bytes32 _pairId) external view returns (MojitoConfig memory) {
-    return (s_mojitoConfig[bytes4(_pairId)]);
+  function getFeedConfig(bytes32 _pairId) external view returns (FeedConfig memory) {
+    return (s_feedConfig[bytes4(_pairId)]);
+  }
+
+  /// @notice returns pair of the tokenA and the tokenB.
+  function getPair(address tokenA, address tokenB) external view returns (address) {
+    return IMojitoFactory(factory).getPair(tokenA, tokenB);
   }
 
   /**
-   * @notice sets mojito parameters
-   * @param _decimals the number of decimals
+   * @notice sets feed parameters
    * @param _base first asset denomination (e.g. BTC)
    * @param _quote second asset denomination (e.g. USDT)
    * @param _tokenA underlying asset contract address
@@ -183,8 +187,7 @@ contract MojitoOracle is IMojitoOracle, ConfirmedOwner {
    * @param _tokenCBaseUnit the number of wei in 1 tokenC
    * @dev must be called by owner
    */
-  function setMojitoConfig(
-    uint256 _decimals,
+  function setFeedConfig(
     string calldata _base,
     string calldata _quote,
     address _tokenA,
@@ -193,36 +196,25 @@ contract MojitoOracle is IMojitoOracle, ConfirmedOwner {
     uint256 _tokenABaseUnit,
     uint256 _tokenCBaseUnit
   ) external onlyOwner {
-    bytes memory _caption = abi.encodePacked("Price-", bytes(_base), "/", bytes(_quote), "-", _decimals.toString());
+    bytes memory _caption = abi.encodePacked("Price-", bytes(_base), "/", bytes(_quote), "-", DECIMALS.toString());
     bytes32 _pairId = keccak256(_caption);
-    MojitoConfig storage mojitoConfig = s_mojitoConfig[bytes4(_pairId)];
-    mojitoConfig.decimals = _decimals;
-    mojitoConfig.base = _base;
-    mojitoConfig.quote = _quote;
-    mojitoConfig.pairId = _pairId;
-    mojitoConfig.tokenA = _tokenA;
-    mojitoConfig.tokenB = _tokenB;
-    mojitoConfig.tokenC = _tokenC;
-    mojitoConfig.tokenABaseUnit = _tokenABaseUnit;
-    mojitoConfig.tokenCBaseUnit = _tokenCBaseUnit;
-    emit MojitoConfigSet(
-      _pairId,
-      _decimals,
-      _base,
-      _quote,
-      _tokenA,
-      _tokenB,
-      _tokenC,
-      mojitoConfig.tokenABaseUnit,
-      _tokenCBaseUnit
-    );
+    FeedConfig storage feedConfig = s_feedConfig[bytes4(_pairId)];
+    feedConfig.base = _base;
+    feedConfig.quote = _quote;
+    feedConfig.pairId = _pairId;
+    feedConfig.tokenA = _tokenA;
+    feedConfig.tokenB = _tokenB;
+    feedConfig.tokenC = _tokenC;
+    feedConfig.tokenABaseUnit = _tokenABaseUnit;
+    feedConfig.tokenCBaseUnit = _tokenCBaseUnit;
+    emit FeedConfigSet(_pairId, _base, _quote, _tokenA, _tokenB, _tokenC, _tokenABaseUnit, _tokenCBaseUnit);
   }
 
   /// @notice Returns human-readable caption of the ERC2362-based currency pair identifier, if known.
   function lookupERC2362ID(bytes32 _erc2362id) external view override returns (string memory _caption) {
-    MojitoConfig memory _pair = s_mojitoConfig[bytes4(_erc2362id)];
+    FeedConfig memory _pair = s_feedConfig[bytes4(_erc2362id)];
     if (bytes(_pair.base).length > 0 && bytes(_pair.quote).length > 0) {
-      _caption = string(abi.encodePacked("Price-", _pair.base, "/", _pair.quote, "-", _pair.decimals.toString()));
+      _caption = string(abi.encodePacked("Price-", _pair.base, "/", _pair.quote, "-", DECIMALS.toString()));
     }
   }
 
