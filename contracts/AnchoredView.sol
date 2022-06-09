@@ -10,7 +10,7 @@ contract AnchoredView is OwnerIsCreator {
   using SafeMath for uint256;
 
   bool public validateAnswerEnabled;
-
+  /// @notice how many digits of precision to retain, in 1e-decimals token units
   uint256 public immutable answerBaseUnit;
 
   struct MojitoConfig {
@@ -60,19 +60,19 @@ contract AnchoredView is OwnerIsCreator {
   /*
    * @param _mojitoOracle address of the mojito oracle contract
    * @param _witnetOracle address of the witnet oracle contract
-   * @param _answerBaseUnit how many digits of precision to retain, in 1e-decimals token units
+   * @param _decimals answers are stored in fixed-point format, with this many digits of precision
    * @param _validateAnswerEnabled whether to enable the switch for validate answer
    */
   constructor(
     address _mojitoOracle,
     address _witnetOracle,
-    uint256 _answerBaseUnit,
+    uint8 _decimals,
     bool _validateAnswerEnabled
   ) {
     _setMojitoOracle(IMojitoOracle(_mojitoOracle));
     _setWitnetOracle(IERC2362(_witnetOracle));
-
-    answerBaseUnit = _answerBaseUnit;
+    // pow(10, _decimals)
+    answerBaseUnit = 10**_decimals;
     validateAnswerEnabled = _validateAnswerEnabled;
   }
 

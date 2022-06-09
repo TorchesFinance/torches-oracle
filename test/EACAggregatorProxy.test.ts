@@ -68,7 +68,6 @@ describe('EACAggregatorProxy', () => {
   const phaseBase = BigNumber.from(2).pow(64)
   const lowerBoundAnchorRatio = 95
   const upperBoundAnchorRatio = 105
-  const answerBaseUnit = 1e8
   const validateAnswerEnabled = false
 
   let aggregator: Contract
@@ -91,7 +90,6 @@ describe('EACAggregatorProxy', () => {
         'TEST / USDT',
         constants.AddressZero,
         constants.AddressZero,
-        answerBaseUnit,
         validateAnswerEnabled,
       )
     const emptyAddress = constants.AddressZero

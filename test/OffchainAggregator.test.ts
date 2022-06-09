@@ -104,9 +104,9 @@ describe('OffchainAggregator', () => {
         description,
         mojitoOracleTest.address,
         witnetPriceTest.address,
-        answerBaseUnit,
         validateAnswerEnabled,
       )
+    assert.equal(answerBaseUnit, await aggregator.answerBaseUnit())
   })
 
   it('has a limited public interface [ @skip-coverage ]', () => {

@@ -15,7 +15,6 @@ contract AccessControlledOffchainAggregator is OffchainAggregator, SimpleReadAcc
     string memory _description,
     address _mojitoOracle,
     address _witnetOracle,
-    uint256 _answerBaseUnit,
     bool _validateAnswerEnabled
   )
     OffchainAggregator(
@@ -25,7 +24,6 @@ contract AccessControlledOffchainAggregator is OffchainAggregator, SimpleReadAcc
       _description,
       _mojitoOracle,
       _witnetOracle,
-      _answerBaseUnit,
       _validateAnswerEnabled
     )
   {}

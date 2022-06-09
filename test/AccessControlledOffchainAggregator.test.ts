@@ -13,14 +13,14 @@ import { bigNumEquals } from './test-helpers/matchers'
 import { publicAbi } from './test-helpers/helpers'
 
 let personas: Personas
-let ocrAggregatorFactory: ContractFactory
+let acocrAggregatorFactory: ContractFactory
 let ocrTestFactory: ContractFactory
 let mojitoOracleTestFactory: ContractFactory
 let witnetPriceTestFactory: ContractFactory
 
 before(async () => {
   personas = (await getUsers()).personas
-  ocrAggregatorFactory = await ethers.getContractFactory(
+  acocrAggregatorFactory = await ethers.getContractFactory(
     'contracts/AccessControlledOffchainAggregator.sol:AccessControlledOffchainAggregator',
   )
   ocrTestFactory = await ethers.getContractFactory(
@@ -139,7 +139,7 @@ describe('AccessControlledOffchainAggregator', () => {
       .connect(personas.Carol)
       .deploy()
 
-    aggregator = await ocrAggregatorFactory
+    aggregator = await acocrAggregatorFactory
       .connect(personas.Carol)
       .deploy(
         lowerBoundAnchorRatio,
@@ -148,9 +148,9 @@ describe('AccessControlledOffchainAggregator', () => {
         description,
         mojitoOracleTest.address,
         witnetPriceTest.address,
-        answerBaseUnit,
         validateAnswerEnabled,
       )
+    assert.equal(answerBaseUnit, await aggregator.answerBaseUnit())
   })
 
   it('has a limited public interface [ @skip-coverage ]', () => {
