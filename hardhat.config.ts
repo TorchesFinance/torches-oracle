@@ -1,6 +1,5 @@
 
 import 'dotenv/config'
-import "@nomiclabs/hardhat-etherscan"
 import '@typechain/hardhat'
 import '@nomiclabs/hardhat-ethers'
 import '@nomiclabs/hardhat-waffle'
@@ -111,44 +110,6 @@ const config: HardhatUserConfig = {
         },
       },
     ],
-  },
-  etherscan: {
-    apiKey: {
-      mainnet: process.env.ETHERSCAN_API_KEY,
-      ropsten: process.env.ETHERSCAN_API_KEY,
-      rinkeby: process.env.ETHERSCAN_API_KEY,
-      goerli: process.env.ETHERSCAN_API_KEY,
-      kovan: process.env.ETHERSCAN_API_KEY,
-      // binance smart chain
-      bsc: process.env.BSCSCAN_API_KEY,
-      bscTestnet: process.env.BSCSCAN_API_KEY,
-      // huobi eco chain
-      heco: "YOUR_HECOINFO_API_KEY",
-      hecoTestnet: "YOUR_HECOINFO_API_KEY",
-      // fantom mainnet
-      opera: process.env.FTMSCAN_API_KEY,
-      ftmTestnet: process.env.FTMSCAN_API_KEY,
-      // optimism
-      optimisticEthereum: "YOUR_OPTIMISTIC_ETHERSCAN_API_KEY",
-      optimisticKovan: "YOUR_OPTIMISTIC_ETHERSCAN_API_KEY",
-      // polygon
-      polygon: process.env.POLYGONSCAN_API_KEY,
-      polygonMumbai: process.env.POLYGONSCAN_API_KEY,
-      // arbitrum
-      arbitrumOne: "YOUR_ARBISCAN_API_KEY",
-      arbitrumTestnet: "YOUR_ARBISCAN_API_KEY",
-      // avalanche
-      avalanche: process.env.SNOWTRACE_API_KEY,
-      avalancheFujiTestnet: process.env.SNOWTRACE_API_KEY,
-      // moonbeam
-      moonbeam: "YOUR_MOONBEAM_MOONSCAN_API_KEY",
-      moonriver: "YOUR_MOONRIVER_MOONSCAN_API_KEY",
-      moonbaseAlpha: "YOUR_MOONBEAM_MOONSCAN_API_KEY",
-      // xdai and sokol don't need an API key, but you still need
-      // to specify one; any string placeholder will work
-      xdai: "api-key",
-      sokol: "api-key",
-    }
   },
   spdxLicenseIdentifier: {
     overwrite: false,
