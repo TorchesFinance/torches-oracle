@@ -118,15 +118,15 @@ contract OffchainAggregator is OwnerIsCreator, AggregatorV2V3Interface, TypeAndV
   function setAnchorRatio(uint8 _lowerBoundAnchorRatio, uint8 _upperBoundAnchorRatio) external onlyOwner {
     require(
       minLowerBoundAnchorRatio <= _lowerBoundAnchorRatio,
-      "lowerBoundAnchorRatio must greater or equal to minLowerBoundAnchorRatio"
+      "lowerBoundAnchorRatio must greater than or equal to minLowerBoundAnchorRatio"
     );
     require(
       maxUpperBoundAnchorRatio >= _upperBoundAnchorRatio,
-      "upperBoundAnchorRatio must Less than or equal to maxUpperBoundAnchorRatio"
+      "upperBoundAnchorRatio must less than or equal to maxUpperBoundAnchorRatio"
     );
     require(
       _upperBoundAnchorRatio > _lowerBoundAnchorRatio,
-      "upperBoundAnchorRatio must Less than lowerBoundAnchorRatio"
+      "upperBoundAnchorRatio must less than lowerBoundAnchorRatio"
     );
 
     lowerBoundAnchorRatio = _lowerBoundAnchorRatio;

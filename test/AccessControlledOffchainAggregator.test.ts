@@ -279,7 +279,7 @@ describe('AccessControlledOffchainAggregator', () => {
               upperBoundAnchorRatio,
             ),
         ).to.be.revertedWith(
-          'lowerBoundAnchorRatio must greater or equal to minLowerBoundAnchorRatio',
+          'lowerBoundAnchorRatio must greater than or equal to minLowerBoundAnchorRatio',
         )
       })
     })
@@ -294,7 +294,7 @@ describe('AccessControlledOffchainAggregator', () => {
               BigNumber.from(maxUpperBoundAnchorRatio).add(1),
             ),
         ).to.be.revertedWith(
-          'upperBoundAnchorRatio must Less than or equal to maxUpperBoundAnchorRatio',
+          'upperBoundAnchorRatio must less than or equal to maxUpperBoundAnchorRatio',
         )
       })
     })
@@ -304,7 +304,7 @@ describe('AccessControlledOffchainAggregator', () => {
         await expect(
           aggregator.connect(personas.Carol).setAnchorRatio(100, 100),
         ).to.be.revertedWith(
-          'upperBoundAnchorRatio must Less than lowerBoundAnchorRatio',
+          'upperBoundAnchorRatio must less than lowerBoundAnchorRatio',
         )
       })
     })
